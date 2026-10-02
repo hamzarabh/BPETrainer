@@ -1,5 +1,7 @@
 from collections import defaultdict
+from functools import lru_cache
 import json
+
 class BPETokenizer:
     def __init__(self):
         self.vocab = {}
@@ -23,7 +25,7 @@ class BPETokenizer:
         return pair_freqs
 
     def ft_merger(self, pair_freqs, vocab_freq, merges_list):
-        c1, c2t = max(dict(pair_freqs), key=pair_freqs.get)
+        c1, c2 = max(dict(pair_freqs), key=pair_freqs.get)
         token = c1 + c2
         merges_list.append([c1,c2])
         new_vocab_freq = defaultdict()
@@ -56,7 +58,8 @@ class BPETokenizer:
         with open('tokenizer.json', 'w', encoding='utf-8') as f:
             json.dump(tokenazer_data, f, ensure_ascii=False, indent=4)
 
-    def ft_encode(self, text: str):
+    @lru_cache(maxsize=None)
+    def encode(self, text: str):
         ids_list = []
         text = text.replace(" ", "Ġ")
         text = list(text)
@@ -65,7 +68,7 @@ class BPETokenizer:
             for a, b in tokenizer_file["merges"]:
                 new = f"{a}{b}"
                 i = 0
-                while i < len(text) - 2:
+                while i < len(text) - 1:
                     if a == text[i] and b == text[i+1]:
                         text[i] = new
                         del text[i+1]
@@ -75,17 +78,33 @@ class BPETokenizer:
                     ids_list.append(tokenizer_file["vocab"][token])
                 else:
                     continue
-            return (ids_list)
+            return tuple(ids_list)
+
+    @lru_cache(maxsize=None)
+    def decode(self, ids: tuple) -> str:
+        with open('tokenizer.json') as f:
+            vocab = json.load(f)["vocab"]
+            reversed_vocab = dict(zip(vocab.values(), vocab.keys()))
+        text_result = ""
+        for id in ids:
+            text_result += reversed_vocab[id]
+        text_result = text_result.replace("Ġ", " ")
+        return text_result
 
 
 
 
-with open("data.txt") as data:
-    test = data.read()
+
+
+
+# with open("data.txt") as data:
+#     test = data.read()
 
 
 tekenizer = BPETokenizer()
 
-tekenizer.train(test, 1000)
-res = tekenizer.ft_encode("hello")
+# tekenizer.train(test, 1000)
+res = tekenizer.encode("my name is hamza")
 print(res)
+
+print(tekenizer.decode(res))
